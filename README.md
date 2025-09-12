@@ -5,6 +5,47 @@
 
 Basic implementation of the [paper](https://research.google/pubs/a-deep-probabilistic-model-for-customer-lifetime-value-prediction/) on predicting Customer Lifetime Value (CLV) using deep probabilistic models.
 
+## Setup
+
+### 1. Create and activate virtual environment
+
+```bash
+# Create a virtual environment
+python -m venv venv
+
+# Activate the virtual environment
+
+## On Windows
+venv\Scripts\activate
+## On macOS/Linux
+source venv/bin/activate
+
+# Install required packages
+pip install -r requirements.txt
+```
+
+### 2. Download the dataset
+
+You need to have a Kaggle account and API key to download the dataset. If you don't have the API key yet:
+1. Go to your Kaggle account settings (https://www.kaggle.com/account)
+2. Click "Create New API Token" and save the kaggle.json file
+3. Place this file in ~/.kaggle/ directory (create it if it doesn't exist)
+
+```bash
+# Make the download script executable
+chmod +x download_transactions.sh
+
+# Run the download script
+./download_transactions.sh
+```
+
+### 3. Preprocess the data
+
+```bash
+# Preprocess the downloaded data
+python preprocess.py
+```
+
 ## 📊 Dataset
 
 This project uses the [Acquire Valued Shoppers Challenge dataset](https://www.kaggle.com/competitions/acquire-valued-shoppers-challenge/data) from Kaggle.
