@@ -3,10 +3,9 @@ import numpy as np
 import pandas as pd
 import tqdm
 import pathlib
-import logging
 from datetime import datetime
 from multiprocessing.dummy import Pool as ThreadPool
-from logger import setup_logger
+from google_lifetime_value.utils.logger import setup_logger
     
 # top 20 companies with most transactions
 COMPANYS = [
@@ -141,7 +140,6 @@ def process(company):
     
     return customer_level_data
 
-# %%
 with ThreadPool() as p:
     _ = p.map(process, COMPANYS)
 

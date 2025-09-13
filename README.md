@@ -32,18 +32,15 @@ You need to have a Kaggle account and API key to download the dataset. If you do
 3. Place this file in ~/.kaggle/ directory (create it if it doesn't exist)
 
 ```bash
-# Make the download script executable
-chmod +x download_transactions.sh
-
-# Run the download script
-./download_transactions.sh
+# Make the download script executable and download the script
+make download_data
 ```
 
 ### 3. Preprocess the data
 
 ```bash
 # Preprocess the downloaded data
-python preprocess.py
+make preprocess
 ```
 
 ## 📊 Dataset
@@ -52,29 +49,20 @@ This project uses the [Acquire Valued Shoppers Challenge dataset](https://www.ka
 
 ### Dataset Explanation
 
-You are provided four relational files:
+We are provided four relational files:
 
 - **transactions.csv** - Contains transaction history for all customers for a period of at least 1 year prior to their offered incentive.
 - **trainHistory.csv** - Contains the incentive offered to each customer and information about the behavioral response to the offer.
 - **testHistory.csv** - Contains the incentive offered to each customer but does not include their response (you are predicting the `repeater` column for each id in this file).
 - **offers.csv** - Contains information about the offers.
 
+**👉 Only the transactions data will be evaluated for user lifetime value prediction task**
+
 ### Fields
 
-All fields are anonymized and categorized to protect customer and sales information. The specific meanings of the fields will not be provided (so don't bother asking). Part of the challenge is learning the taxonomy of items in a data-driven way.
-
-#### History
-- `id` - A unique id representing a customer
-- `chain` - An integer representing a store chain
-- `offer` - An id representing a certain offer
-- `market` - An id representing a geographical region
-- `repeattrips` - The number of times the customer made a repeat purchase
-- `repeater` - A boolean, equal to `repeattrips > 0`
-- `offerdate` - The date a customer received the offer
-
 #### Transactions
-- `id` - See above
-- `chain` - See above
+- `id` - An integer representing unique customer
+- `chain` - An integer representing a store chain
 - `dept` - An aggregate grouping of the Category (e.g., water)
 - `category` - The product category (e.g., sparkling water)
 - `company` - An id of the company that sells the item
@@ -85,16 +73,12 @@ All fields are anonymized and categorized to protect customer and sales informat
 - `purchasequantity` - The number of units purchased
 - `purchaseamount` - The dollar amount of the purchase
 
-#### Offers
-- `offer` - See above
-- `category` - See above
-- `quantity` - The number of units one must purchase to get the discount
-- `company` - See above
-- `offervalue` - The dollar value of the offer
-- `brand` - See above
 
-### Joins
-- The transactions file can be joined to the history file by (`id`, `chain`).
-- The history file can be joined to the offers file by (`offer`).
-- The transactions file can be joined to the offers file by (`category`, `brand`, `company`).
-- A negative value in `productquantity` and `purchaseamount` indicates a return.
+## Preprocessing
+
+Only the top 20 companies with most transaction count are considered to decrease data size (original data is approx. 22GBs of size and pretty cumbersome to play with). For each company, transaction data is splitted (20 different csv files are produced), Then following data is generated;
+
+- `start_date`- The very first date a customer makes transaction
+- `calibration_value` - The customer's total purchase amount at his/her start date
+- `holdout_value`- Total yearly purchase amount for the customer -excluding start date-
+- `calibration_attributes
