@@ -64,6 +64,10 @@ def load_data(company):
     return df
 
 def preprocess(df):
+# Count rows with negative purchase amount (returns) per customer
+  df['num_returns'] = df.groupby('id')['purchaseamount'].transform(
+    lambda x: (x < 0).sum()).astype('int64')
+
   df = df.query('purchaseamount>0').copy()
   df.loc[:,'date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
   df.loc[:,'start_date'] = df.groupby('id')['date'].transform('min')

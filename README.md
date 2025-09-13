@@ -81,4 +81,8 @@ Only the top 20 companies with most transaction count are considered to decrease
 - `start_date`- The very first date a customer makes transaction
 - `calibration_value` - The customer's total purchase amount at his/her start date
 - `holdout_value`- Total yearly purchase amount for the customer -excluding start date-
-- `calibration_attributes
+- `chain`- The store chain of the item user spends the highest in his/her start date
+- `dept`- The aggregate category of the item user spends the highest in his/her start date
+- `category` - The product category of the item user spends the highest in his/her start date
+- `brand`- The brand of the item user spends the highest in his/her start date
+- - `productmeasure`- The produdct measure of the item user spends the highest in his/her start date
