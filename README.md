@@ -38,10 +38,7 @@ make download_data
 
 ### 3. Preprocess the data
 
-```bash
-# Preprocess the downloaded data
-make preprocess
-```
+run the [`preprocess_data`](/Users/batuhansaritas/Desktop/repositories/google-lifetime-value/notebooks/preprocess_data.ipynb) Jupyter Notebok.
 
 ## 📊 Dataset
 

@@ -4,21 +4,13 @@ import pandas as pd
 import tqdm
 import pathlib
 from datetime import datetime
-from multiprocessing.dummy import Pool as ThreadPool
 from google_lifetime_value.utils.logger import setup_logger
-    
-# top 20 companies with most transactions
-COMPANYS = [
-    10000,
-    101200010, 101410010, 101600010, 102100020, 102700020,
-    102840020, 103000030, 103338333, 103400030, 103600030,
-    103700030, 103800030, 104300040, 104400040, 104470040,
-    104900040, 105100050, 105150050, 107800070
-]
 
 logger = setup_logger()
 
 def load_data(company):
+
+    """Load and filter transaction data for a specific company."""
     repo_root = pathlib.Path('').resolve() 
     trx_data_filename = repo_root / 'data' / 'transactions.csv.gz'
 
@@ -42,10 +34,8 @@ def load_data(company):
     
         # Process in chunks to handle large file
         for chunk in tqdm.tqdm(pd.read_csv(trx_data_filename, compression='gzip', chunksize=chunksize)):        
-
             # Filter for the specified company
-            company_chunk = chunk.query("company=={}".format(company))          
-
+            company_chunk = chunk.query(f"company=={company}")          
             if not company_chunk.empty:
                 data_list.append(company_chunk)
 
@@ -64,65 +54,77 @@ def load_data(company):
     return df
 
 def preprocess(df):
-# Count rows with negative purchase amount (returns) per customer
-  df['num_returns'] = df.groupby('id')['purchaseamount'].transform(
-    lambda x: (x < 0).sum()).astype('int64')
+    """Preprocess transaction data to create customer-level features."""
+    # Create copy of input dataframe to avoid SettingWithCopyWarning
+    orig_df = df.copy()
+    
+    # Count returns once and keep this information
+    returns_by_id = orig_df.loc[orig_df['purchaseamount'] < 0].groupby('id').size().reset_index()
+    returns_by_id.columns = ['id', 'return_count']
+    
+    # Filter out negative purchase amounts
+    df = orig_df[orig_df['purchaseamount'] > 0].copy()
+    
+    # Convert date once
+    df.loc[:,'date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+    
+    # Create a dictionary to store all customer-level aggregations
+    customer_data = {}
+    
+    # Calculate start date for each customer
+    start_dates = df.groupby('id')['date'].min()
+    df = df.join(start_dates.rename('start_date'), on='id')
+    
+    # Identify calibration rows (first purchase date)
+    calibration_mask = df['date'] == df['start_date']
+    calibration_rows = df[calibration_mask]
+    
+    # Compute calibration values
+    calibration_values = calibration_rows.groupby('id')['purchaseamount'].sum()
+    customer_data['calibration_value'] = calibration_values
+    customer_data['log_calibration_value'] = np.log(calibration_values).astype('float32')
+    
+    # Calculate holdout values (purchases within one year after start date)
+    holdout_mask = ((df['date'] > df['start_date']) & 
+                    (df['date'] <= df['start_date'] + np.timedelta64(365, 'D')))
+    holdout_values = df[holdout_mask].groupby('id')['purchaseamount'].sum()
+    customer_data['holdout_value'] = holdout_values
+    
+    # Compute calibration attributes (using the highest purchase within first day)
+    categorical_features = ['chain', 'dept', 'category', 'brand', 'productmeasure']
+    
+    # Get first purchase attributes - use first() after sorting by purchaseamount
+    calibration_attributes = (calibration_rows
+                             .sort_values(['id', 'purchaseamount'], ascending=[True, False])
+                             .groupby('id')[categorical_features]
+                             .first())
+    
+    # Combine all customer data into one DataFrame
+    result = pd.DataFrame(index=customer_data['calibration_value'].index)
+    
+    # Add numeric features
+    for col, series in customer_data.items():
+        result[col] = series
+    
+    # Add categorical features 
+    result = result.join(calibration_attributes)
+    
+    # Add returns data through merge
+    result = result.reset_index().merge(returns_by_id, on='id', how='left').assign(return_count=lambda x: x['return_count'].fillna(0).astype('int64'))
+    
+    # Fill missing values
+    result['holdout_value'] = result['holdout_value'].fillna(0.)
+    result[categorical_features] = result[categorical_features].fillna('UNKNOWN')
+    
+    # Convert to appropriate data types
+    result['label'] = result['holdout_value'].astype('float32')
+    for col in categorical_features:
+        result[col] = result[col].astype('category')
+    
+    return result
 
-  df = df.query('purchaseamount>0').copy()
-  df.loc[:,'date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
-  df.loc[:,'start_date'] = df.groupby('id')['date'].transform('min')
-
-  # Compute calibration values
-  calibration_value = (
-      df.query('date==start_date').groupby('id')
-      ['purchaseamount'].sum().reset_index())
-  calibration_value.columns = ['id', 'calibration_value']
-
-  # Compute holdout values
-  one_year_holdout_window_mask = (
-      (df['date'] > df['start_date']) &
-      (df['date'] <= df['start_date'] + np.timedelta64(365, 'D')))
-  holdout_value = (
-      df[one_year_holdout_window_mask].groupby('id')
-      ['purchaseamount'].sum().reset_index())
-  holdout_value.columns = ['id', 'holdout_value']
-
-  # Compute calibration attributes
-  calibration_attributes = (
-      df.query('date==start_date').sort_values(
-          'purchaseamount', ascending=False).groupby('id')[[
-              'chain', 'dept', 'category', 'brand', 'productmeasure'
-          ]].first().reset_index())
-
-  # Merge dataframes
-  customer_level_data = (
-      calibration_value.merge(calibration_attributes, how='left',
-                              on='id').merge(
-                                  holdout_value, how='left', on='id'))
-  customer_level_data['holdout_value'] = (
-      customer_level_data['holdout_value'].fillna(0.))
-  categorical_features = ([
-      'chain', 'dept', 'category', 'brand', 'productmeasure'
-  ])
-  customer_level_data[categorical_features] = (
-      customer_level_data[categorical_features].fillna('UNKNOWN'))
-
-  # Specify data types
-  customer_level_data['log_calibration_value'] = (
-      np.log(customer_level_data['calibration_value']).astype('float32'))
-  customer_level_data['chain'] = (
-      customer_level_data['chain'].astype('category'))
-  customer_level_data['dept'] = (customer_level_data['dept'].astype('category'))
-  customer_level_data['brand'] = (
-      customer_level_data['brand'].astype('category'))
-  customer_level_data['category'] = (
-      customer_level_data['category'].astype('category'))
-  customer_level_data['label'] = (
-      customer_level_data['holdout_value'].astype('float32'))
-  return customer_level_data
-
-# %%
 def process(company):    
+    """Process transaction data for a company and save customer-level features."""
     logger.info(f"Processing company {company}")
     
     # Load transaction data for this company
@@ -143,8 +145,3 @@ def process(company):
     logger.info(f"Customer data saved to: {customer_level_data_file}")
     
     return customer_level_data
-
-with ThreadPool() as p:
-    _ = p.map(process, COMPANYS)
-
-
