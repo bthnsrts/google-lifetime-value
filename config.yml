@@ -22,3 +22,6 @@ companies:
     - 105150050
     - 107800070
   inactive:
+
+company_to_predict:
+- 10000

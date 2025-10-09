@@ -82,4 +82,5 @@ Only the top 20 companies with most transaction count are considered to decrease
 - `dept`- The aggregate category of the item user spends the highest in his/her start date
 - `category` - The product category of the item user spends the highest in his/her start date
 - `brand`- The brand of the item user spends the highest in his/her start date
-- - `productmeasure`- The produdct measure of the item user spends the highest in his/her start date
+- `productmeasure`- The produdct measure of the item user spends the highest in his/her start date
+- `return_count`- The number of times user returns an item (makes a transaction with negative purchase amount)

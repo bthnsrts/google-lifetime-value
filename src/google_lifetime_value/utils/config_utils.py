@@ -12,4 +12,7 @@ def get_config():
 def get_active_companies():    
     config = get_config()
     return config['companies']['active']
-    
+
+def get_company_to_predict():    
+    config = get_config()
+    return config['company_to_predict']
